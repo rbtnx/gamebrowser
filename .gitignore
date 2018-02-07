@@ -1,5 +1,6 @@
 # virtualenv stuff
 .gamebrowser/
+.gamebrowser-win/
 
 # vscode config files
 .vscode/
