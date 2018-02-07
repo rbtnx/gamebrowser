@@ -5,6 +5,9 @@
 # vscode config files
 .vscode/
 
+# pylint behaviour
+.pylintrc
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
