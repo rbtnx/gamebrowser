@@ -34,6 +34,6 @@ def get_games(page):
         game_link_id = re.search('[0-9]{1,7}', game_link_id).group(0)
         return int(game_link_id)
 
-    # game_list = {get_game_name(ii):get_game_ID(ii) for ii in games}
-    game_list = {get_game_ID(ii):get_game_name(ii) for ii in games}
+    game_list = {get_game_name(ii):get_game_ID(ii) for ii in games}
+    # game_list = {get_game_ID(ii):get_game_name(ii) for ii in games}
     return game_list
