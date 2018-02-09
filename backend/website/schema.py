@@ -9,7 +9,7 @@ def get_collection(username):
     col = bgg.collection(username, exclude_subtype='boardgameexpansion', own=True, wishlist=None)
     game_list = []
     for game in col:
-        g = Game(gid=game.id, collection_name=game.name, rating=game.rating, maxplayers=game.maxplayers, minplayers=game.minplayers)
+        g = Game(id=game.id, gid=game.id, collection_name=game.name, rating=game.rating, maxplayers=game.maxplayers, minplayers=game.minplayers)
         game_list.append(g)
     c = Collection(id=username, numgames=len(col), username=username, games=game_list)
     return c
