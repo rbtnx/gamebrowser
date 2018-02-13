@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
-from urllib.request import urlopen
+import requests
+import requests_cache
 from bs4 import BeautifulSoup as BS
 from boardgamegeek import BGGClient
 from website.models import Game, db
@@ -12,8 +13,21 @@ config.Config.SQLALCHEMY_DATABASE_URI = 'postgresql://kathrin:password@localhost
 app = create_app(config.DevelopmentConfig)
 app.app_context().push()
 db.init_app(app)
+requests_cache.install_cache()
 
-def games_from_website(page):
+def collection_from_website(username, pagenum=1):
+    url = 'https://boardgamegeek.com/collection/user/{}?own=1&subtype=boardgame&excludesubtype=boardgameexpansion&pageID={}'.format(username, pagenum)
+    bgg_page = requests.get(url)
+    url_text = BS(bgg_page.content, 'html.parser')
+    numgames_text = url_text.find('span', attrs={'class':'geekpages'})
+    numgames = int(re.search('(?<=of )[0-9]{1,5}', str(numgames_text)).group(0))
+    game_list = games_from_html(url_text)
+    if pagenum < ((numgames // 300) + 1):
+        pagenum += 1
+        game_list.update(collection_from_website(username, pagenum))
+    return game_list
+
+def games_from_html(url_text):
     """Get all game names and IDs from a page of BGG website.
 
     Description:
@@ -22,19 +36,15 @@ def games_from_website(page):
         Games are listed in increments of 50
 
     inputs:
-        page (int): Page number (starts at 1)
+        url_text (soup): Parsed website (with Beautiful soup)
 
     returns:
         game_list (dict): {Name:ID}
     """
-    url = 'https://boardgamegeek.com/browse/boardgame/page/{}'.format(page)
-    bgg_page = urlopen(url)
-    my_bytes = bgg_page.read()
-    url_text = my_bytes.decode("utf8")
-    bgg_page.close()
-    url_text = BS(url_text, 'html.parser')
-
+    # url = 'https://boardgamegeek.com/browse/boardgame/page/{}'.format(page)
     games = url_text.find_all("td", class_="collection_objectname")
+    plays = url_text.find_all("td", class_="collection_plays")
+    rating = url_text.find_all("td", class_="collection_rating")
 
     def get_game_name(item):
         game_name = item.findNext('a').text
@@ -45,7 +55,28 @@ def games_from_website(page):
         game_link_id = re.search('[0-9]{1,7}', game_link_id).group(0)
         return int(game_link_id)
 
-    game_list = {get_game_name(ii):get_game_ID(ii) for ii in games}
+    def get_plays(item):
+        if item.a:
+            return int(item.a.text)
+        return 0
+
+    def get_user_rating(item):
+        user_rating = item.findNext("div", class_="rating")
+        if user_rating.div:
+            return float(user_rating.div.text)
+        return float(0)
+
+    game_list = {}
+    zipped = zip(games, plays, rating)
+    for item in zipped:
+        dict_item = {
+            get_game_name(item[0]): {
+                'id': get_game_ID(item[0]),
+                'plays': get_plays(item[1]),
+                'rating': get_user_rating(item[2])
+            }
+        }
+        game_list.update(dict_item)
     return game_list
 
 def collect_gamedata(game_list):

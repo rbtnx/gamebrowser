@@ -3,16 +3,29 @@ from graphene import relay
 from graphql_relay.node.node import to_global_id
 from boardgamegeek import BGGClient
 
-bgg = BGGClient(retries=3, retry_delay=8)
+bgg = BGGClient(retries=10, retry_delay=4)
+
+def create_game_list(username):
+    collection = bgg.collection(username, exclude_subtype='boardgameexpansion', own=True, wishlist=None)
+    game_list = []
+    for game in collection:
+        g = Game(id=game.id, gid=game.id, collection_name=game.name, rating=game.rating,
+                 maxplayers=game.maxplayers, minplayers=game.minplayers)
+        game_list.append(g)
+    return game_list
+
 
 def get_collection(username):
-    col = bgg.collection(username, exclude_subtype='boardgameexpansion', own=True, wishlist=None)
-    game_list = []
-    for game in col:
-        g = Game(id=game.id, gid=game.id, collection_name=game.name, rating=game.rating, maxplayers=game.maxplayers, minplayers=game.minplayers)
-        game_list.append(g)
-    c = Collection(id=username, numgames=len(col), username=username, games=game_list)
+    game_list = create_game_list(username)
+    c = Collection(id=username, numgames=len(game_list), username=username,
+                   games=[game.gid for game in game_list])
     return c
+
+def get_game(owner, id_):
+    game_list = create_game_list(owner)
+    for game in game_list:
+        if game.gid == id_:
+            return game
 
 
 class Game(graphene.ObjectType):
@@ -25,10 +38,11 @@ class Game(graphene.ObjectType):
     rating = graphene.Float()
     maxplayers = graphene.Int()
     minplayers = graphene.Int()
+    owner = graphene.String()
 
     @classmethod
     def get_node(cls, info, id):
-        pass
+        return get_game(cls.owner, id)
 
 class GameConnection(relay.Connection):
 
@@ -45,8 +59,8 @@ class Collection(graphene.ObjectType):
     numgames = graphene.Int()
 
     games = relay.ConnectionField(GameConnection, description="Games in collection")
-    def resolve_games(self, info):
-        return self.games
+    def resolve_games(self, info, **args):
+        return create_game_list(self.username)
 
     @classmethod
     def get_node(cls, info, id):
@@ -59,5 +73,6 @@ class QueryType(graphene.ObjectType):
 
     def resolve_collection(self, info, username):
         return get_collection(username)
+
 
 schema = graphene.Schema(query=QueryType)
