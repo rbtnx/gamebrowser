@@ -19,6 +19,6 @@ requests-cache==0.4.13
 Rx==1.6.0
 six==1.11.0
 typing==3.6.4
-urllib3==1.22
+urllib3==1.26.5
 Werkzeug==0.14.1
 redis==2.10.6
